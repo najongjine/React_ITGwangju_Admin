@@ -1,0 +1,7 @@
+{
+  "reject": [
+    "pixi-live2d-display",
+    "pixi.js",
+    "@pixi/*"
+  ]
+}

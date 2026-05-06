@@ -1,0 +1,29 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./App.css";
+import Home from "./Pages/Home";
+import Header from "./Component/Header";
+import Footer from "./Component/Footer";
+import Maze from "./Pages/Maze";
+import ContextAPI_Test from "./Pages/ContextAPI_Test";
+import Login from "./Pages/Login";
+import ComponentGuide from "./Pages/ComponentGuide";
+
+function App() {
+  return (
+    <>
+      <BrowserRouter>
+        <Header />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/maze" element={<Maze />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/components" element={<ComponentGuide />} />
+          <Route path="/contextapi_test" element={<ContextAPI_Test />} />
+        </Routes>
+        <Footer />
+      </BrowserRouter>
+    </>
+  );
+}
+
+export default App;
