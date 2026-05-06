@@ -6,8 +6,6 @@ const menuItems = [
   { path: "/", label: "대시보드" },
   { path: "/components", label: "컴포넌트" },
   { path: "/login", label: "로그인" },
-  { path: "/maze", label: "미로" },
-  { path: "/aivtuber", label: "AI Vtuber" },
   { path: "/contextapi_test", label: "Context" },
 ];
 

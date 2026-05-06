@@ -60,8 +60,8 @@ const Home: React.FC = () => {
   return (
     <Page
       title="관리자 대시보드"
-      description="아래 컴포넌트들은 props로 내용만 바꿔 끼우면 됩니다. 지금은 샘플 배열을 쓰고, 나중에는 DB에서 받아온 데이터로 교체하면 됩니다."
-      actions={<Button>새 항목 추가</Button>}
+      description="아래 컴포넌트들은 props로 내용만 바꿔 사용할 수 있습니다. 지금은 샘플 배열에 연결되어 있고, 나중에는 DB에서 받아온 데이터로 교체하면 됩니다."
+      actions={<Button>항목 추가</Button>}
     >
       <Section title="요약">
         <Grid columns={3}>
@@ -71,19 +71,25 @@ const Home: React.FC = () => {
         </Grid>
       </Section>
 
-      <Section title="기본 카드" description="제목, 설명, 내용만 넣으면 되는 가장 평범한 박스입니다.">
+      <Section
+        title="기본 카드"
+        description="제목, 설명, 내용만 넣으면 되는 가장 단순한 박스입니다."
+      >
         <Grid columns={2}>
-          <Card title="공지사항" description="최근 공지나 안내 문구를 넣는 자리">
-            <p>DB에서 불러온 공지 내용을 여기 출력하면 됩니다.</p>
+          <Card title="공지 사항" description="최근 공지와 안내 문구를 넣는 자리">
+            <p>DB에서 불러온 공지 내용을 여기에 출력하면 됩니다.</p>
             <Button variant="secondary">자세히 보기</Button>
           </Card>
-          <Card title="검색 폼" description="입력 컴포넌트 예시">
+          <Card title="검색" description="입력 컴포넌트 예시">
             <TextInput label="검색어" placeholder="이름 또는 이메일 입력" />
           </Card>
         </Grid>
       </Section>
 
-      <Section title="목록 테이블" description="rows 배열만 DB 데이터로 바꾸면 그대로 쓸 수 있습니다.">
+      <Section
+        title="목록 테이블"
+        description="rows 배열만 DB 데이터로 바꾸면 그대로 사용할 수 있습니다."
+      >
         <DataTable
           rows={members}
           getRowKey={(member) => member.id}
