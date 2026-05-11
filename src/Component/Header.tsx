@@ -20,7 +20,7 @@ const Header: React.FC = () => {
     <header className="header">
       <div className="header-main">
         <NavLink to="/" className="header-logo">
-          ITLOC
+          광주컴퓨터기술학원 관리자 페이지
         </NavLink>
 
         <nav className="header-nav" aria-label="주요 메뉴">
