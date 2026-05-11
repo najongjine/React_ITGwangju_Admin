@@ -4,6 +4,7 @@ import "./Header.css";
 
 const menuItems = [
   { path: "/", label: "대시보드" },
+  { path: "/courses", label: "과정 관리" },
   { path: "/components", label: "컴포넌트" },
   { path: "/login", label: "로그인" },
   { path: "/contextapi_test", label: "Context" },
