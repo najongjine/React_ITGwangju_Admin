@@ -11,6 +11,11 @@ const menuItems = [
 ];
 
 const Header: React.FC = () => {
+  const envInfo = {
+    mode: import.meta.env.MODE,
+    authUrl: import.meta.env.VITE_AUTH_VALIDATE_URL ?? "not set",
+  };
+
   return (
     <header className="header">
       <div className="header-main">
@@ -32,6 +37,12 @@ const Header: React.FC = () => {
             </NavLink>
           ))}
         </nav>
+
+        <div className="header-env" title={envInfo.authUrl}>
+          <span>ENV</span>
+          <strong>{envInfo.mode}</strong>
+          <code>{envInfo.authUrl}</code>
+        </div>
       </div>
     </header>
   );
