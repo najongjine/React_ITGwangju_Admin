@@ -11,9 +11,36 @@ const menuItems = [
 ];
 
 const Header: React.FC = () => {
+  const getCourseApiBaseUrl = () => {
+    const courseApiBaseUrl = import.meta.env.VITE_COURSE_API_BASE_URL;
+
+    if (courseApiBaseUrl) {
+      return courseApiBaseUrl;
+    }
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+    if (apiBaseUrl) {
+      return `${apiBaseUrl.replace(/\/$/, "")}/api/courses`;
+    }
+
+    const authUrl = import.meta.env.VITE_AUTH_VALIDATE_URL;
+
+    if (authUrl) {
+      try {
+        return `${new URL(authUrl).origin}/api/courses`;
+      } catch {
+        return `${authUrl.replace(/\/$/, "")}/api/courses`;
+      }
+    }
+
+    return "/api/courses";
+  };
+
   const envInfo = {
     mode: import.meta.env.MODE,
     authUrl: import.meta.env.VITE_AUTH_VALIDATE_URL ?? "not set",
+    courseApiUrl: getCourseApiBaseUrl(),
   };
 
   return (
@@ -38,10 +65,10 @@ const Header: React.FC = () => {
           ))}
         </nav>
 
-        <div className="header-env" title={envInfo.authUrl}>
+        <div className="header-env" title={`AUTH: ${envInfo.authUrl}\nCOURSE: ${envInfo.courseApiUrl}`}>
           <span>ENV</span>
           <strong>{envInfo.mode}</strong>
-          <code>{envInfo.authUrl}</code>
+          <code>{envInfo.courseApiUrl}</code>
         </div>
       </div>
     </header>

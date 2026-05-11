@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_AUTH_VALIDATE_URL?: string;
+  readonly VITE_COURSE_API_BASE_URL?: string;
   readonly VITE_LLAMAINDEX_SERVER_URL?: string;
 }
 

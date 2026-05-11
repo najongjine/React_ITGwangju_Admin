@@ -67,7 +67,33 @@ export type CoursePayload = {
   descriptionImages: File[];
 };
 
-const COURSE_API_BASE = import.meta.env.VITE_COURSE_API_BASE_URL || "/api/courses";
+function getCourseApiBaseUrl() {
+  const courseApiBaseUrl = import.meta.env.VITE_COURSE_API_BASE_URL;
+
+  if (courseApiBaseUrl) {
+    return courseApiBaseUrl;
+  }
+
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+  if (apiBaseUrl) {
+    return joinUrl(apiBaseUrl, "/api/courses");
+  }
+
+  const authValidateUrl = import.meta.env.VITE_AUTH_VALIDATE_URL;
+
+  if (authValidateUrl) {
+    try {
+      return joinUrl(new URL(authValidateUrl).origin, "/api/courses");
+    } catch {
+      return joinUrl(authValidateUrl, "/api/courses");
+    }
+  }
+
+  return "/api/courses";
+}
+
+const COURSE_API_BASE = getCourseApiBaseUrl();
 
 export class CourseApiError extends Error {
   status: number;
