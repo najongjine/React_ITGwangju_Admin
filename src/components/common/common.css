@@ -287,6 +287,37 @@ textarea.field__input {
   flex-wrap: wrap;
 }
 
+.password-reset-form {
+  display: grid;
+  max-width: 640px;
+  gap: 16px;
+}
+
+.selected-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #cfd8e8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.selected-user div {
+  display: grid;
+  gap: 4px;
+}
+
+.selected-user strong {
+  color: #172033;
+}
+
+.selected-user span {
+  color: #667085;
+  font-size: 0.9rem;
+}
+
 .course-toolbar {
   display: flex;
   align-items: end;
@@ -325,6 +356,12 @@ textarea.field__input {
   color: #b42318;
 }
 
+.form-message--success {
+  border: 1px solid #75e0a7;
+  background: #ecfdf3;
+  color: #067647;
+}
+
 .auth-layout {
   width: min(520px, 100%);
 }
@@ -351,6 +388,20 @@ textarea.field__input {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.table-stack {
+  display: grid;
+  gap: 3px;
+}
+
+.table-stack strong {
+  color: #243042;
+}
+
+.table-stack span {
+  color: #667085;
+  font-size: 0.88rem;
 }
 
 .table-thumbnail {
@@ -435,6 +486,15 @@ textarea.field__input {
   margin: 18px 0 0;
   color: #344054;
   white-space: pre-wrap;
+}
+
+.inquiry-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 14px;
+  color: #475467;
+  font-size: 0.95rem;
 }
 
 .detail-image-grid {

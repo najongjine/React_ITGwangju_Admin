@@ -42,6 +42,17 @@ export type LoginPayload = {
   password: string;
 };
 
+export type AdminPasswordResetPayload = {
+  userId?: number | null;
+  identifier?: string;
+  newPassword?: string;
+};
+
+export type AdminPasswordResetResult = {
+  user: AuthUser;
+  temporaryPassword: string | null;
+};
+
 const DEFAULT_AUTH_API_PATH = "/api/user";
 
 function joinUrl(baseUrl: string, path: string) {
@@ -141,6 +152,53 @@ export async function getCurrentUser(token: string | null) {
       Authorization: `Bearer ${token}`,
     },
   });
+}
+
+export async function getAdminUsers(token: string | null, q = "") {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  const params = new URLSearchParams();
+  const keyword = q.trim();
+  if (keyword) {
+    params.set("q", keyword);
+  }
+
+  const queryString = params.toString();
+  return requestJson<AuthUser[]>(
+    joinUrl(AUTH_API_BASE, `/admin/users${queryString ? `?${queryString}` : ""}`),
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+}
+
+export async function adminResetPassword(
+  token: string | null,
+  payload: AdminPasswordResetPayload
+) {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestJson<AdminPasswordResetResult>(
+    joinUrl(AUTH_API_BASE, "/admin/password-reset"),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: payload.userId || undefined,
+        identifier: payload.identifier?.trim() || undefined,
+        newPassword: payload.newPassword || undefined,
+      }),
+    }
+  );
 }
 
 export async function validateAuthToken(
