@@ -32,10 +32,9 @@ export type CourseSession = {
   sessionNo?: number | null;
   startDate?: string | null;
   endDate?: string | null;
-  applyStartDate?: string | null;
-  applyEndDate?: string | null;
+  classStartTime?: string | null;
+  classEndTime?: string | null;
   capacity?: number | null;
-  location?: string | null;
   status?: string | null;
 };
 

@@ -34,6 +34,43 @@
   gap: 8px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.header-auth,
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.header-user {
+  max-width: 340px;
+}
+
+.header-user__name {
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
+.header-user__meta {
+  min-width: 0;
+  overflow: hidden;
+  color: #667085;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+}
+
 .header-env {
   display: flex;
   align-items: center;
@@ -104,6 +141,17 @@
   .header-nav {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .header-right {
+    align-items: flex-start;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .header-user {
+    flex-wrap: wrap;
+    max-width: 100%;
   }
 
   .header-env {

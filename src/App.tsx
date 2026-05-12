@@ -20,6 +20,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/maze" element={<Maze />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Login initialMode="signup" />} />
           <Route path="/courses" element={<CourseList />} />
           <Route path="/courses/new" element={<CourseForm />} />
           <Route path="/courses/:id" element={<CourseDetail />} />

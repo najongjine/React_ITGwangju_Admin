@@ -1,16 +1,19 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { Button } from "../components/common";
+import { useAuth } from "../contexts/AuthContext";
 import "./Header.css";
 
 const menuItems = [
   { path: "/", label: "대시보드" },
   { path: "/courses", label: "과정 관리" },
   { path: "/components", label: "컴포넌트" },
-  { path: "/login", label: "로그인" },
   { path: "/contextapi_test", label: "Context" },
 ];
 
 const Header: React.FC = () => {
+  const { clearToken, isAuthenticated, status, user } = useAuth();
+
   const getCourseApiBaseUrl = () => {
     const courseApiBaseUrl = import.meta.env.VITE_COURSE_API_BASE_URL;
 
@@ -65,10 +68,35 @@ const Header: React.FC = () => {
           ))}
         </nav>
 
-        <div className="header-env" title={`AUTH: ${envInfo.authUrl}\nCOURSE: ${envInfo.courseApiUrl}`}>
-          <span>ENV</span>
-          <strong>{envInfo.mode}</strong>
-          <code>{envInfo.courseApiUrl}</code>
+        <div className="header-right">
+          {isAuthenticated ? (
+            <div className="header-user">
+              <span className="header-user__name">
+                {user?.realName || user?.name || user?.username || "회원"}
+              </span>
+              <span className="header-user__meta">
+                {user?.email || user?.role || "로그인됨"}
+              </span>
+              <Button variant="secondary" onClick={clearToken}>
+                로그아웃
+              </Button>
+            </div>
+          ) : (
+            <div className="header-auth">
+              <NavLink to="/login" className="header-menu">
+                로그인
+              </NavLink>
+              <NavLink to="/signup" className="header-menu">
+                회원가입
+              </NavLink>
+            </div>
+          )}
+
+          <div className="header-env" title={`AUTH: ${envInfo.authUrl}\nCOURSE: ${envInfo.courseApiUrl}`}>
+            <span>ENV</span>
+            <strong>{envInfo.mode}</strong>
+            <code>{status === "checking" ? "auth checking..." : envInfo.courseApiUrl}</code>
+          </div>
         </div>
       </div>
     </header>

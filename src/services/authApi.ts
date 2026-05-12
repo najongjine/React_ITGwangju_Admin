@@ -1,29 +1,83 @@
 export type ApiResponse<T = unknown> = {
   success: boolean;
   data: T;
-  msg: string;
+  code?: string;
+  msg?: string;
+  message?: string;
 };
 
-const DEFAULT_AUTH_VALIDATE_PATH = "/auth/validate";
+export type AuthUser = {
+  id: number;
+  provider?: string | null;
+  providerUserId?: string | null;
+  email?: string | null;
+  name?: string | null;
+  realName?: string | null;
+  username?: string | null;
+  phone?: string | null;
+  role?: string | null;
+  status?: string | null;
+  lastLoginAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type AuthSession = {
+  user: AuthUser;
+  token: string;
+  tokenType?: string;
+  expiresIn?: number;
+};
+
+export type RegisterPayload = {
+  email: string;
+  realName: string;
+  username: string;
+  password: string;
+  phone: string;
+};
+
+export type LoginPayload = {
+  identifier: string;
+  password: string;
+};
+
+const DEFAULT_AUTH_API_PATH = "/api/user";
 
 function joinUrl(baseUrl: string, path: string) {
   return `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
 }
 
-function getAuthValidateUrl() {
-  const validateUrl = import.meta.env.VITE_AUTH_VALIDATE_URL;
+function getAuthApiBaseUrl() {
+  const authApiBaseUrl = import.meta.env.VITE_AUTH_API_BASE_URL;
 
-  if (validateUrl) {
-    return validateUrl;
+  if (authApiBaseUrl) {
+    return authApiBaseUrl;
   }
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-  if (baseUrl) {
-    return joinUrl(baseUrl, DEFAULT_AUTH_VALIDATE_PATH);
+  if (apiBaseUrl) {
+    return joinUrl(apiBaseUrl, DEFAULT_AUTH_API_PATH);
   }
 
-  return "";
+  const legacyAuthUrl = import.meta.env.VITE_AUTH_VALIDATE_URL;
+
+  if (legacyAuthUrl) {
+    try {
+      return joinUrl(new URL(legacyAuthUrl).origin, DEFAULT_AUTH_API_PATH);
+    } catch {
+      return joinUrl(legacyAuthUrl, DEFAULT_AUTH_API_PATH);
+    }
+  }
+
+  return DEFAULT_AUTH_API_PATH;
+}
+
+const AUTH_API_BASE = getAuthApiBaseUrl();
+
+function getMessage(result: ApiResponse<unknown>, fallback: string) {
+  return result.message || result.msg || fallback;
 }
 
 async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
@@ -40,38 +94,69 @@ async function readApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
   return response.json() as Promise<ApiResponse<T>>;
 }
 
-export async function validateAuthToken<T = unknown>(
+async function requestJson<T>(url: string, init?: RequestInit) {
+  const response = await fetch(url, init);
+  const result = await readApiResponse<T>(response);
+
+  if (!response.ok || !result.success) {
+    throw new Error(getMessage(result, `요청에 실패했습니다. HTTP ${response.status}`));
+  }
+
+  return result.data;
+}
+
+export async function registerUser(payload: RegisterPayload) {
+  return requestJson<AuthSession>(joinUrl(AUTH_API_BASE, "/register"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: payload.email,
+      real_name: payload.realName,
+      username: payload.username,
+      password: payload.password,
+      phone: payload.phone,
+    }),
+  });
+}
+
+export async function loginUser(payload: LoginPayload) {
+  return requestJson<AuthSession>(joinUrl(AUTH_API_BASE, "/login"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getCurrentUser(token: string | null) {
+  if (!token) {
+    throw new Error("토큰이 없습니다.");
+  }
+
+  return requestJson<AuthUser>(joinUrl(AUTH_API_BASE, "/me"), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function validateAuthToken(
   token: string | null
-): Promise<ApiResponse<T | null>> {
+): Promise<ApiResponse<AuthUser | null>> {
   if (!token) {
     return { success: false, data: null, msg: "Token is missing." };
   }
 
-  const validateUrl = getAuthValidateUrl();
-
-  if (!validateUrl) {
-    return {
-      success: false,
-      data: null,
-      msg: "Auth token validation URL is not configured.",
-    };
-  }
-
   try {
-    const response = await fetch(validateUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ token }),
-    });
-    const result = await readApiResponse<T>(response);
+    const user = await getCurrentUser(token);
 
     return {
-      success: response.ok && result.success,
-      data: result.data ?? null,
-      msg: result.msg ?? "",
+      success: true,
+      data: user,
+      msg: "",
     };
   } catch (error) {
     return {

@@ -26,10 +26,9 @@ type SessionForm = {
   sessionNo: string;
   startDate: string;
   endDate: string;
-  applyStartDate: string;
-  applyEndDate: string;
+  classStartTime: string;
+  classEndTime: string;
   capacity: string;
-  location: string;
   status: string;
 };
 
@@ -39,15 +38,18 @@ const emptySessionForm: SessionForm = {
   sessionNo: "",
   startDate: "",
   endDate: "",
-  applyStartDate: "",
-  applyEndDate: "",
+  classStartTime: "",
+  classEndTime: "",
   capacity: "",
-  location: "",
   status: "recruiting",
 };
 
 function toDateInputValue(value?: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function toTimeInputValue(value?: string | null) {
+  return value ? value.slice(0, 5) : "";
 }
 
 function toSessionForm(session: CourseSession): SessionForm {
@@ -57,10 +59,9 @@ function toSessionForm(session: CourseSession): SessionForm {
     sessionNo: session.sessionNo ? String(session.sessionNo) : "",
     startDate: toDateInputValue(session.startDate),
     endDate: toDateInputValue(session.endDate),
-    applyStartDate: toDateInputValue(session.applyStartDate),
-    applyEndDate: toDateInputValue(session.applyEndDate),
+    classStartTime: toTimeInputValue(session.classStartTime),
+    classEndTime: toTimeInputValue(session.classEndTime),
     capacity: session.capacity ? String(session.capacity) : "",
-    location: session.location || "",
     status: session.status || "recruiting",
   };
 }
@@ -148,10 +149,9 @@ export default function CourseDetail() {
         sessionNo: nullableNumber(sessionForm.sessionNo),
         startDate: sessionForm.startDate || null,
         endDate: sessionForm.endDate || null,
-        applyStartDate: sessionForm.applyStartDate || null,
-        applyEndDate: sessionForm.applyEndDate || null,
-        capacity: Number(sessionForm.capacity) || 0,
-        location: sessionForm.location,
+        classStartTime: sessionForm.classStartTime || null,
+        classEndTime: sessionForm.classEndTime || null,
+        capacity: Number(sessionForm.capacity) || 20,
         status: sessionForm.status,
       });
       resetSessionForm();
@@ -270,16 +270,16 @@ export default function CourseDetail() {
                       onChange={(event) => updateSessionForm("endDate", event.target.value)}
                     />
                     <TextInput
-                      label="신청 시작일"
-                      type="date"
-                      value={sessionForm.applyStartDate}
-                      onChange={(event) => updateSessionForm("applyStartDate", event.target.value)}
+                      label="수업 시작 시간"
+                      type="time"
+                      value={sessionForm.classStartTime}
+                      onChange={(event) => updateSessionForm("classStartTime", event.target.value)}
                     />
                     <TextInput
-                      label="신청 종료일"
-                      type="date"
-                      value={sessionForm.applyEndDate}
-                      onChange={(event) => updateSessionForm("applyEndDate", event.target.value)}
+                      label="수업 종료 시간"
+                      type="time"
+                      value={sessionForm.classEndTime}
+                      onChange={(event) => updateSessionForm("classEndTime", event.target.value)}
                     />
                     <TextInput
                       label="정원"
@@ -287,11 +287,6 @@ export default function CourseDetail() {
                       min="0"
                       value={sessionForm.capacity}
                       onChange={(event) => updateSessionForm("capacity", event.target.value)}
-                    />
-                    <TextInput
-                      label="장소"
-                      value={sessionForm.location}
-                      onChange={(event) => updateSessionForm("location", event.target.value)}
                     />
                     <label className="field">
                       <span className="field__label">상태</span>
@@ -341,19 +336,14 @@ export default function CourseDetail() {
                       render: (session) => `${session.startDate || "-"} ~ ${session.endDate || "-"}`,
                     },
                     {
-                      key: "apply",
-                      header: "신청 기간",
-                      render: (session) => `${session.applyStartDate || "-"} ~ ${session.applyEndDate || "-"}`,
+                      key: "classTime",
+                      header: "수업 시간",
+                      render: (session) => `${toTimeInputValue(session.classStartTime) || "-"} ~ ${toTimeInputValue(session.classEndTime) || "-"}`,
                     },
                     {
                       key: "capacity",
                       header: "정원",
                       render: (session) => session.capacity ?? 0,
-                    },
-                    {
-                      key: "location",
-                      header: "장소",
-                      render: (session) => session.location || "-",
                     },
                     {
                       key: "status",

@@ -325,6 +325,19 @@ textarea.field__input {
   color: #b42318;
 }
 
+.auth-layout {
+  width: min(520px, 100%);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-form .form-message {
+  margin-bottom: 2px;
+}
+
 .muted {
   color: #667085;
 }
