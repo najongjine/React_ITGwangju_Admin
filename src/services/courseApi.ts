@@ -64,6 +64,7 @@ export type CoursePayload = {
   sortOrder: number;
   mainImage?: File | null;
   descriptionImages: File[];
+  descriptionImageOrders?: number[];
 };
 
 function getCourseApiBaseUrl() {
@@ -245,8 +246,9 @@ export async function saveCourse(payload: CoursePayload) {
     formData.set("mainImage", payload.mainImage);
   }
 
-  for (const file of payload.descriptionImages) {
+  for (const [index, file] of payload.descriptionImages.entries()) {
     formData.append("descriptionImages", file);
+    formData.append("descriptionImageOrders", String(payload.descriptionImageOrders?.[index] ?? index));
   }
 
   return requestJson<Course>(COURSE_API_BASE, {

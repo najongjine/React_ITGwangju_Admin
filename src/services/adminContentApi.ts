@@ -52,6 +52,7 @@ export type NoticePayload = {
   status: string;
   publishedAt?: string;
   imageFileIds?: number[];
+  imageOrders?: number[];
   images?: File[];
 };
 
@@ -66,6 +67,18 @@ export type Inquiry = {
   answer?: string | null;
   answeredBy?: number | null;
   answeredAt?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  replies?: InquiryReply[];
+};
+
+export type InquiryReply = {
+  id: number;
+  inquiryId: number;
+  userId?: number | null;
+  authorRole: string;
+  content: string;
   status?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -220,6 +233,10 @@ export async function saveNotice(token: string | null, payload: NoticePayload) {
     formData.append("imageFileIds", String(fileId));
   }
 
+  for (const order of payload.imageOrders || []) {
+    formData.append("imageOrders", String(order));
+  }
+
   for (const file of payload.images || []) {
     formData.append("images", file);
   }
@@ -285,6 +302,24 @@ export async function updateInquiryStatus(token: string | null, id: number, stat
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ status }),
+  });
+}
+
+export async function addInquiryReply(token: string | null, id: number, content: string) {
+  return requestJson<InquiryReply>(joinUrl(INQUIRY_API_BASE, `${id}/replies`), {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deleteInquiryReply(token: string | null, id: number, replyId: number) {
+  return requestJson<InquiryReply>(joinUrl(INQUIRY_API_BASE, `${id}/replies/${replyId}`), {
+    method: "DELETE",
+    headers: authHeaders(token),
   });
 }
 

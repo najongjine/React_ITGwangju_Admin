@@ -98,13 +98,12 @@ export default function NoticeDetail() {
                 <span>작성자 {notice.authorName || "-"}</span>
                 <span>게시일 {formatDateTime(notice.publishedAt || notice.createdAt)}</span>
               </div>
-              {notice.content && <p className="detail-description">{notice.content}</p>}
             </Card>
           </Section>
 
           <Section title="첨부 이미지">
             {notice.images && notice.images.length > 0 ? (
-              <div className="detail-image-grid">
+              <div className="detail-image-stack">
                 {notice.images.map((image, index) =>
                   image.file?.url ? (
                     <img
@@ -119,6 +118,14 @@ export default function NoticeDetail() {
               <EmptyState title="등록된 이미지가 없습니다." />
             )}
           </Section>
+
+          {notice.content && (
+            <Section title="내용">
+              <Card>
+                <p className="detail-description">{notice.content}</p>
+              </Card>
+            </Section>
+          )}
         </>
       ) : null}
     </Page>

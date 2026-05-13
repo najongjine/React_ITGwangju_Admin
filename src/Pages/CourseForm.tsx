@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, EmptyState, Page, Section, TextInput } from "../components/common";
 import {
@@ -43,6 +43,17 @@ function revokeDraftUrls(drafts: DescriptionImageDraft[]) {
   }
 }
 
+function moveDraft<T>(items: T[], fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+    return items;
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
 async function fileFromExistingImage(draft: DescriptionImageDraft, index: number) {
   if (draft.file) {
     return draft.file;
@@ -77,11 +88,13 @@ export default function CourseForm() {
   const [mainImage, setMainImage] = useState<File | null>(null);
   const [mainPreviewUrl, setMainPreviewUrl] = useState("");
   const [descriptionImages, setDescriptionImages] = useState<DescriptionImageDraft[]>([]);
+  const [draggedDescriptionImageId, setDraggedDescriptionImageId] = useState("");
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const mainObjectUrlRef = useRef("");
   const descriptionImagesRef = useRef<DescriptionImageDraft[]>([]);
+  const draggedDescriptionImageIdRef = useRef("");
 
   useEffect(() => {
     if (!isEdit) {
@@ -186,6 +199,41 @@ export default function CourseForm() {
     });
   };
 
+  const moveDescriptionImage = (draggedId: string, targetId: string) => {
+    setDescriptionImages((prev) => {
+      const fromIndex = prev.findIndex((draft) => draft.id === draggedId);
+      const toIndex = prev.findIndex((draft) => draft.id === targetId);
+      return moveDraft(prev, fromIndex, toIndex);
+    });
+  };
+
+  const handleDescriptionImageDragStart = (
+    event: DragEvent<HTMLDivElement>,
+    draftId: string
+  ) => {
+    draggedDescriptionImageIdRef.current = draftId;
+    setDraggedDescriptionImageId(draftId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draftId);
+  };
+
+  const handleDescriptionImageDragEnter = (
+    event: DragEvent<HTMLDivElement>,
+    targetId: string
+  ) => {
+    event.preventDefault();
+    const draggedId = draggedDescriptionImageIdRef.current || draggedDescriptionImageId;
+    if (draggedId && draggedId !== targetId) {
+      moveDescriptionImage(draggedId, targetId);
+    }
+  };
+
+  const handleDescriptionImageDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    draggedDescriptionImageIdRef.current = "";
+    setDraggedDescriptionImageId("");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
@@ -217,6 +265,7 @@ export default function CourseForm() {
         sortOrder: Number(form.sortOrder) || 0,
         mainImage,
         descriptionImages: descriptionFiles,
+        descriptionImageOrders: descriptionFiles.map((_, index) => index),
       });
 
       navigate(`/courses/${saved.id}`);
@@ -339,14 +388,31 @@ export default function CourseForm() {
               {descriptionImages.length > 0 ? (
                 <div className="image-preview-grid image-preview-grid--columns">
                   {descriptionImages.map((draft, index) => (
-                    <div className="image-preview-item" key={draft.id}>
+                    <div
+                      className={`image-preview-item${
+                        draggedDescriptionImageId === draft.id ? " image-preview-item--dragging" : ""
+                      }`}
+                      key={draft.id}
+                      draggable
+                      onDragStart={(event) => handleDescriptionImageDragStart(event, draft.id)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                      }}
+                      onDragEnter={(event) => handleDescriptionImageDragEnter(event, draft.id)}
+                      onDrop={handleDescriptionImageDrop}
+                      onDragEnd={() => {
+                        draggedDescriptionImageIdRef.current = "";
+                        setDraggedDescriptionImageId("");
+                      }}
+                    >
                       <div className="image-preview-item__info">
                         <p>{index + 1}. {draft.name}</p>
                         <Button variant="danger" onClick={() => removeDescriptionImage(draft.id)}>
                           삭제
                         </Button>
                       </div>
-                      <img src={draft.url} alt={`${draft.name} 미리보기`} />
+                      <img src={draft.url} alt={`${draft.name} 미리보기`} draggable={false} />
                     </div>
                   ))}
                 </div>

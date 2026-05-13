@@ -217,17 +217,16 @@ export default function CourseDetail() {
                 <span>{course.isVisible === false ? "숨김" : "노출"}</span>
                 <span>정렬 {course.sortOrder ?? 0}</span>
               </div>
-              {course.thumbnail?.url && (
-                <img className="detail-hero-image" src={course.thumbnail.url} alt={course.courseName} />
-              )}
-              {course.description && <p className="detail-description">{course.description}</p>}
             </Card>
           </Section>
 
           <Section title="설명 이미지">
-            {course.descriptionImages && course.descriptionImages.length > 0 ? (
-              <div className="detail-image-grid">
-                {course.descriptionImages.map(({ file, link }, index) =>
+            {course.thumbnail?.url || (course.descriptionImages && course.descriptionImages.length > 0) ? (
+              <div className="detail-image-stack">
+                {course.thumbnail?.url && (
+                  <img src={course.thumbnail.url} alt={course.courseName} />
+                )}
+                {(course.descriptionImages || []).map(({ file, link }, index) =>
                   file?.url ? (
                     <img key={link.id || file.id || index} src={file.url} alt={`${course.courseName} 설명 ${index + 1}`} />
                   ) : null
@@ -237,6 +236,14 @@ export default function CourseDetail() {
               <EmptyState title="등록된 설명 이미지가 없습니다." />
             )}
           </Section>
+
+          {course.description && (
+            <Section title="상세 내용">
+              <Card>
+                <p className="detail-description">{course.description}</p>
+              </Card>
+            </Section>
+          )}
 
           <Section title="회차 관리">
             <div className="session-manager">

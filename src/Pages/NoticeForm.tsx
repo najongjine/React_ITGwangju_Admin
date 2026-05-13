@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, EmptyState, Page, Section, TextInput } from "../components/common";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,7 +6,6 @@ import {
   formatAdminContentApiError,
   getNotice,
   saveNotice,
-  type Notice,
   type NoticeImageLink,
 } from "../services/adminContentApi";
 
@@ -50,6 +49,17 @@ function revokeDraftUrls(drafts: ImageDraft[]) {
   }
 }
 
+function moveDraft<T>(items: T[], fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+    return items;
+  }
+
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
+}
+
 export default function NoticeForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,10 +68,12 @@ export default function NoticeForm() {
   const isEdit = Number.isFinite(noticeId) && noticeId > 0;
   const [form, setForm] = useState<FormState>(initialForm);
   const [images, setImages] = useState<ImageDraft[]>([]);
+  const [draggedImageId, setDraggedImageId] = useState("");
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const imagesRef = useRef<ImageDraft[]>([]);
+  const draggedImageIdRef = useRef("");
 
   useEffect(() => {
     if (!isEdit) {
@@ -143,6 +155,35 @@ export default function NoticeForm() {
     });
   };
 
+  const moveImage = (draggedId: string, targetId: string) => {
+    setImages((prev) => {
+      const fromIndex = prev.findIndex((draft) => draft.id === draggedId);
+      const toIndex = prev.findIndex((draft) => draft.id === targetId);
+      return moveDraft(prev, fromIndex, toIndex);
+    });
+  };
+
+  const handleImageDragStart = (event: DragEvent<HTMLDivElement>, draftId: string) => {
+    draggedImageIdRef.current = draftId;
+    setDraggedImageId(draftId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", draftId);
+  };
+
+  const handleImageDragEnter = (event: DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault();
+    const draggedId = draggedImageIdRef.current || draggedImageId;
+    if (draggedId && draggedId !== targetId) {
+      moveImage(draggedId, targetId);
+    }
+  };
+
+  const handleImageDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    draggedImageIdRef.current = "";
+    setDraggedImageId("");
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
@@ -155,6 +196,13 @@ export default function NoticeForm() {
     setSaving(true);
 
     try {
+      const existingImageDrafts = images.filter((draft) => draft.existing?.file?.id);
+      const newImageDrafts = images.filter((draft) => draft.file);
+      const imageOrders = [
+        ...existingImageDrafts.map((draft) => images.findIndex((image) => image.id === draft.id)),
+        ...newImageDrafts.map((draft) => images.findIndex((image) => image.id === draft.id)),
+      ];
+
       const saved = await saveNotice(token, {
         id: isEdit ? noticeId : 0,
         title: form.title.trim(),
@@ -164,10 +212,11 @@ export default function NoticeForm() {
         isPinned: form.isPinned,
         status: form.status,
         publishedAt: form.publishedAt || undefined,
-        imageFileIds: images
+        imageFileIds: existingImageDrafts
           .map((draft) => draft.existing?.file?.id)
           .filter((fileId): fileId is number => Boolean(fileId)),
-        images: images.map((draft) => draft.file).filter((file): file is File => Boolean(file)),
+        imageOrders,
+        images: newImageDrafts.map((draft) => draft.file).filter((file): file is File => Boolean(file)),
       });
 
       navigate(`/notices/${saved.id}`);
@@ -273,7 +322,24 @@ export default function NoticeForm() {
               {images.length > 0 ? (
                 <div className="image-preview-grid image-preview-grid--columns">
                   {images.map((draft, index) => (
-                    <div className="image-preview-item" key={draft.id}>
+                    <div
+                      className={`image-preview-item${
+                        draggedImageId === draft.id ? " image-preview-item--dragging" : ""
+                      }`}
+                      key={draft.id}
+                      draggable
+                      onDragStart={(event) => handleImageDragStart(event, draft.id)}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "move";
+                      }}
+                      onDragEnter={(event) => handleImageDragEnter(event, draft.id)}
+                      onDrop={handleImageDrop}
+                      onDragEnd={() => {
+                        draggedImageIdRef.current = "";
+                        setDraggedImageId("");
+                      }}
+                    >
                       <div className="image-preview-item__info">
                         <p>
                           {index + 1}. {draft.name}
@@ -282,7 +348,9 @@ export default function NoticeForm() {
                           삭제
                         </Button>
                       </div>
-                      {draft.url && <img src={draft.url} alt={`${draft.name} 미리보기`} />}
+                      {draft.url && (
+                        <img src={draft.url} alt={`${draft.name} 미리보기`} draggable={false} />
+                      )}
                     </div>
                   ))}
                 </div>

@@ -3,12 +3,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Badge, Button, Card, EmptyState, Page, Section } from "../components/common";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  answerInquiry,
+  addInquiryReply,
   deleteInquiry,
+  deleteInquiryReply,
   formatAdminContentApiError,
   getInquiry,
   updateInquiryStatus,
   type Inquiry,
+  type InquiryReply,
 } from "../services/adminContentApi";
 
 const statusLabels: Record<string, string> = {
@@ -45,7 +47,7 @@ export default function InquiryDetail() {
   const { token } = useAuth();
   const inquiryId = Number(id);
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
-  const [answer, setAnswer] = useState("");
+  const [replyContent, setReplyContent] = useState("");
   const [status, setStatus] = useState("waiting");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,7 +57,6 @@ export default function InquiryDetail() {
   const loadInquiry = async () => {
     const loaded = await getInquiry(token, inquiryId);
     setInquiry(loaded);
-    setAnswer(loaded.answer || "");
     setStatus(loaded.status || "waiting");
   };
 
@@ -84,32 +85,55 @@ export default function InquiryDetail() {
     setError("");
     setMessage("");
 
-    if (!answer.trim() && status === "answered") {
-      setError("답변 완료 상태로 저장하려면 답변 내용을 입력하세요.");
+    if (!replyContent.trim()) {
+      setError("답글 내용을 입력하세요.");
       return;
     }
 
     setSaving(true);
 
     try {
-      if (answer.trim()) {
-        const saved = await answerInquiry(token, inquiryId, {
-          answer: answer.trim(),
-          status,
-        });
-        setInquiry(saved);
-        setAnswer(saved.answer || "");
-        setStatus(saved.status || "answered");
-      } else {
-        const saved = await updateInquiryStatus(token, inquiryId, status);
-        setInquiry(saved);
-        setStatus(saved.status || status);
-      }
-      setMessage("문의사항이 저장되었습니다.");
+      await addInquiryReply(token, inquiryId, replyContent.trim());
+      setReplyContent("");
+      await loadInquiry();
+      setMessage("답글이 등록되었습니다.");
     } catch (saveError) {
-      setError(formatAdminContentApiError(saveError, "문의사항을 저장하지 못했습니다."));
+      setError(formatAdminContentApiError(saveError, "답글을 등록하지 못했습니다."));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleStatusChange = async (nextStatus: string) => {
+    setError("");
+    setMessage("");
+    setStatus(nextStatus);
+    setSaving(true);
+
+    try {
+      const saved = await updateInquiryStatus(token, inquiryId, nextStatus);
+      setInquiry(saved);
+      setStatus(saved.status || nextStatus);
+      setMessage("상태가 변경되었습니다.");
+    } catch (saveError) {
+      setError(formatAdminContentApiError(saveError, "상태를 변경하지 못했습니다."));
+      setStatus(inquiry?.status || "waiting");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReplyDelete = async (reply: InquiryReply) => {
+    if (!window.confirm("이 답글을 삭제할까요?")) {
+      return;
+    }
+
+    try {
+      await deleteInquiryReply(token, inquiryId, reply.id);
+      await loadInquiry();
+      setMessage("답글이 삭제되었습니다.");
+    } catch (deleteError) {
+      alert(formatAdminContentApiError(deleteError, "답글을 삭제하지 못했습니다."));
     }
   };
 
@@ -162,12 +186,45 @@ export default function InquiryDetail() {
                 <span>이메일: {inquiry.email || "-"}</span>
                 <span>연락처: {inquiry.phone || "-"}</span>
               </div>
-              {inquiry.content && <p className="detail-description">{inquiry.content}</p>}
             </Card>
           </Section>
 
-          <Section title="답변 관리">
-            <Card title="관리자 답변">
+          <Section title="답글">
+            <div className="inquiry-thread">
+              <article className="inquiry-thread__item inquiry-thread__item--user">
+                <div className="inquiry-thread__meta">
+                  <strong>{inquiry.name || "문의자"}</strong>
+                  <span>{formatDateTime(inquiry.createdAt)}</span>
+                </div>
+                <p>{inquiry.content || "-"}</p>
+              </article>
+
+              {(inquiry.replies || []).length > 0 ? (
+                (inquiry.replies || []).map((reply) => (
+                  <article
+                    className={`inquiry-thread__item inquiry-thread__item--${reply.authorRole === "admin" ? "admin" : "user"}`}
+                    key={reply.id}
+                  >
+                    <div className="inquiry-thread__meta">
+                      <strong>{reply.authorRole === "admin" ? "관리자" : "문의자"}</strong>
+                      <span>{formatDateTime(reply.createdAt)}</span>
+                    </div>
+                    <p>{reply.content}</p>
+                    <div className="course-form__actions">
+                      <Button variant="danger" onClick={() => void handleReplyDelete(reply)}>
+                        삭제
+                      </Button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <EmptyState title="등록된 답글이 없습니다." />
+              )}
+            </div>
+          </Section>
+
+          <Section title="답글 관리">
+            <Card title="관리자 답글">
               <form className="session-form" onSubmit={(event) => void handleSubmit(event)}>
                 {error && <p className="form-message form-message--error">{error}</p>}
                 {message && <p className="form-message form-message--success">{message}</p>}
@@ -176,7 +233,8 @@ export default function InquiryDetail() {
                   <select
                     className="field__input"
                     value={status}
-                    onChange={(event) => setStatus(event.target.value)}
+                    onChange={(event) => void handleStatusChange(event.target.value)}
+                    disabled={saving}
                   >
                     <option value="waiting">답변 대기</option>
                     <option value="answered">답변 완료</option>
@@ -184,16 +242,16 @@ export default function InquiryDetail() {
                   </select>
                 </label>
                 <label className="field">
-                  <span className="field__label">답변 내용</span>
+                  <span className="field__label">답글 내용</span>
                   <textarea
                     className="field__input"
-                    value={answer}
-                    onChange={(event) => setAnswer(event.target.value)}
+                    value={replyContent}
+                    onChange={(event) => setReplyContent(event.target.value)}
                   />
                 </label>
                 <div className="course-form__actions">
                   <Button type="submit" disabled={saving}>
-                    {saving ? "저장 중" : "답변 저장"}
+                    {saving ? "저장 중" : "답글 등록"}
                   </Button>
                 </div>
               </form>
