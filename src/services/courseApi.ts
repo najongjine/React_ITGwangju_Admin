@@ -6,6 +6,9 @@ export type ApiResult<T> = {
   msg?: string;
 };
 
+export const COURSE_STATUSES = ["모집중", "운영중", "마감"] as const;
+export type CourseStatus = (typeof COURSE_STATUSES)[number];
+
 export type CourseFile = {
   id: number;
   originalName?: string | null;
@@ -28,7 +31,7 @@ export type CourseImageLink = {
 export type CourseSession = {
   id: number;
   courseId: number;
-  sessionName: string;
+  sessionName?: string | null;
   sessionNo?: number | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -36,6 +39,25 @@ export type CourseSession = {
   classEndTime?: string | null;
   capacity?: number | null;
   status?: string | null;
+  totalEnrollment?: number | null;
+};
+
+export type CourseEnrollment = {
+  id: number;
+  courseId: number;
+  sessionId: number;
+  userId?: number | null;
+  applyStatus?: string | null;
+  appliedAt?: string | null;
+  user?: {
+    id?: number;
+    username?: string | null;
+    name?: string | null;
+    realName?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    phoneNumber?: string | null;
+  } | null;
 };
 
 export type Course = {
@@ -50,6 +72,9 @@ export type Course = {
   thumbnail?: CourseFile | null;
   descriptionImages?: CourseImageLink[];
   sessions?: CourseSession[];
+  sessionCount?: number | null;
+  totalCapacity?: number | null;
+  totalEnrollment?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 };
@@ -60,12 +85,26 @@ export type CoursePayload = {
   summary: string;
   description: string;
   isVisible: boolean;
-  status: string;
+  status: CourseStatus;
   sortOrder: number;
   mainImage?: File | null;
   descriptionImages: File[];
   descriptionImageOrders?: number[];
 };
+
+export type CourseSessionPayload = Partial<CourseSession> & {
+  id: number;
+  sessionName: string;
+  status: CourseStatus;
+};
+
+function joinUrl(baseUrl: string, path = "") {
+  if (!path) {
+    return baseUrl;
+  }
+
+  return `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+}
 
 function getCourseApiBaseUrl() {
   const courseApiBaseUrl = import.meta.env.VITE_COURSE_API_BASE_URL;
@@ -123,12 +162,40 @@ export class CourseApiError extends Error {
   }
 }
 
-function joinUrl(baseUrl: string, path = "") {
-  if (!path) {
-    return baseUrl;
+export function normalizeCourseStatus(status?: string | null): CourseStatus | "deleted" | "" {
+  const value = String(status ?? "").trim().toLowerCase();
+
+  if (!value) {
+    return "";
   }
 
-  return `${baseUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+  if (value === "deleted") {
+    return "deleted";
+  }
+
+  if (["모집중", "recruiting", "recruit", "open"].includes(value)) {
+    return "모집중";
+  }
+
+  if (["운영중", "active", "running", "ongoing"].includes(value)) {
+    return "운영중";
+  }
+
+  if (["마감", "종료", "closed", "completed", "ended", "end"].includes(value)) {
+    return "마감";
+  }
+
+  return COURSE_STATUSES.includes(status as CourseStatus) ? (status as CourseStatus) : "";
+}
+
+export function getCourseStatusLabel(status?: string | null) {
+  const normalized = normalizeCourseStatus(status);
+
+  if (normalized === "deleted") {
+    return "삭제됨";
+  }
+
+  return normalized || "상태 없음";
 }
 
 function getMessage(result: ApiResult<unknown>, fallback: string) {
@@ -186,7 +253,7 @@ async function requestJson<T>(url: string, init?: RequestInit) {
     throw new CourseApiError({
       message: response.ok
         ? "서버가 JSON이 아닌 응답을 보냈습니다."
-        : `서버 요청이 실패했습니다. HTTP ${response.status}`,
+        : `서버 요청에 실패했습니다. HTTP ${response.status}`,
       status: response.status,
       statusText: response.statusText,
       url,
@@ -199,7 +266,7 @@ async function requestJson<T>(url: string, init?: RequestInit) {
 
   if (!response.ok || !result.success) {
     throw new CourseApiError({
-      message: getMessage(result, `서버 요청이 실패했습니다. HTTP ${response.status}`),
+      message: getMessage(result, `서버 요청에 실패했습니다. HTTP ${response.status}`),
       status: response.status,
       statusText: response.statusText,
       url,
@@ -261,10 +328,7 @@ export async function getCourseSessions(courseId: number) {
   return requestJson<CourseSession[]>(joinUrl(COURSE_API_BASE, `${courseId}/sessions`));
 }
 
-export async function saveCourseSession(
-  courseId: number,
-  payload: Partial<CourseSession> & { id: number; sessionName: string }
-) {
+export async function saveCourseSession(courseId: number, payload: CourseSessionPayload) {
   return requestJson<CourseSession>(joinUrl(COURSE_API_BASE, `${courseId}/sessions`), {
     method: "POST",
     headers: {
@@ -280,5 +344,11 @@ export async function deleteCourseSession(courseId: number, sessionId: number) {
     {
       method: "DELETE",
     }
+  );
+}
+
+export async function getCourseSessionEnrollments(courseId: number, sessionId: number) {
+  return requestJson<CourseEnrollment[]>(
+    joinUrl(COURSE_API_BASE, `${courseId}/sessions/${sessionId}/enrollments`)
   );
 }

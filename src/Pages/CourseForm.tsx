@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } 
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, Card, EmptyState, Page, Section, TextInput } from "../components/common";
 import {
+  COURSE_STATUSES,
   formatCourseApiError,
   getCourse,
+  normalizeCourseStatus,
   saveCourse,
   type Course,
   type CourseImageLink,
+  type CourseStatus,
 } from "../services/courseApi";
 
 type DescriptionImageDraft = {
@@ -22,7 +25,7 @@ type FormState = {
   summary: string;
   description: string;
   isVisible: boolean;
-  status: string;
+  status: CourseStatus;
   sortOrder: number;
 };
 
@@ -31,7 +34,7 @@ const initialForm: FormState = {
   summary: "",
   description: "",
   isVisible: true,
-  status: "active",
+  status: "모집중",
   sortOrder: 0,
 };
 
@@ -104,13 +107,14 @@ export default function CourseForm() {
     const loadCourse = async () => {
       try {
         const loaded = await getCourse(courseId);
+        const normalizedStatus = normalizeCourseStatus(loaded.status);
         setCourse(loaded);
         setForm({
           courseName: loaded.courseName || "",
           summary: loaded.summary || "",
           description: loaded.description || "",
           isVisible: loaded.isVisible !== false,
-          status: loaded.status || "active",
+          status: normalizedStatus && normalizedStatus !== "deleted" ? normalizedStatus : "모집중",
           sortOrder: loaded.sortOrder ?? 0,
         });
         setMainPreviewUrl(loaded.thumbnail?.url || "");
@@ -119,7 +123,7 @@ export default function CourseForm() {
             .filter((image) => image.file?.url)
             .map((image, index) => ({
               id: `existing-${image.file?.id || image.link.id || index}`,
-              name: image.file?.originalName || image.file?.storedName || `설명 이미지 ${index + 1}`,
+              name: image.file?.originalName || image.file?.storedName || `서브 이미지 ${index + 1}`,
               url: image.file?.url || "",
               existing: image,
             }))
@@ -244,7 +248,7 @@ export default function CourseForm() {
     }
 
     if (isEdit && hasExistingDescriptionImages && descriptionImages.length === 0) {
-      setError("현재 백엔드는 설명 이미지를 모두 비우는 저장을 지원하지 않습니다. 최소 1개를 남기거나 새 이미지를 추가하세요.");
+      setError("현재 백엔드는 서브 이미지를 모두 비운 저장을 지원하지 않습니다. 최소 1개를 남기거나 새 이미지를 추가하세요.");
       return;
     }
 
@@ -279,7 +283,7 @@ export default function CourseForm() {
   return (
     <Page
       title={isEdit ? "과정 수정" : "과정 등록"}
-      description="메인 이미지는 1개, 설명 이미지는 여러 개 등록할 수 있습니다."
+      description="과정 기본 정보와 노출 상태, 메인/서브 이미지를 관리합니다."
       actions={
         <Link to={isEdit ? `/courses/${courseId}` : "/courses"}>
           <Button variant="secondary">취소</Button>
@@ -314,10 +318,11 @@ export default function CourseForm() {
                     value={form.status}
                     onChange={(event) => updateForm("status", event.target.value)}
                   >
-                    <option value="active">운영중</option>
-                    <option value="hidden">숨김</option>
-                    <option value="recruiting">모집중</option>
-                    <option value="closed">마감</option>
+                    {COURSE_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="field field--checkbox">
@@ -340,7 +345,7 @@ export default function CourseForm() {
               </label>
 
               <label className="field">
-                <span className="field__label">설명</span>
+                <span className="field__label">상세 설명</span>
                 <textarea
                   className="field__input"
                   value={form.description}
@@ -351,7 +356,7 @@ export default function CourseForm() {
           </Section>
 
           <Section title="메인 이미지">
-            <Card title="썸네일">
+            <Card title="대표 이미지">
               <label className="field">
                 <span className="field__label">이미지 파일</span>
                 <input
@@ -370,7 +375,7 @@ export default function CourseForm() {
             </Card>
           </Section>
 
-          <Section title="설명 이미지">
+          <Section title="서브 이미지">
             <Card title="상세 이미지">
               <label className="field">
                 <span className="field__label">이미지 파일</span>
@@ -417,7 +422,7 @@ export default function CourseForm() {
                   ))}
                 </div>
               ) : (
-                <EmptyState title="선택된 설명 이미지가 없습니다." />
+                <EmptyState title="선택된 서브 이미지가 없습니다." />
               )}
             </Card>
           </Section>

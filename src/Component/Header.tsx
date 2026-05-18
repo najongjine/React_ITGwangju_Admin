@@ -15,6 +15,7 @@ menuItems.splice(
   0,
   { path: "/notices", label: "공지사항 관리" },
   { path: "/inquiries", label: "문의사항 관리" },
+  { path: "/users", label: "회원관리" },
 );
 
 const Header: React.FC = () => {

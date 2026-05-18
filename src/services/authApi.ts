@@ -53,6 +53,70 @@ export type AdminPasswordResetResult = {
   temporaryPassword: string | null;
 };
 
+export type AdminUserProfile = {
+  address?: string | null;
+  detailAddress?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  currentJob?: string | null;
+  educationLevel?: string | null;
+};
+
+export type AdminEnrollment = {
+  id: number;
+  courseId: number;
+  sessionId: number;
+  userId?: number | null;
+  approvalStatus?: string | null;
+  applyStatus?: string | null;
+  statusLabel?: string | null;
+  memo?: string | null;
+  appliedAt?: string | null;
+  updatedAt?: string | null;
+  course?: {
+    id: number;
+    courseName?: string | null;
+    title?: string | null;
+    name?: string | null;
+  } | null;
+  session?: {
+    id: number;
+    sessionName?: string | null;
+    sessionNo?: number | null;
+  } | null;
+  apply?: {
+    id?: number | null;
+    address?: string | null;
+    detailAddress?: string | null;
+    birthDate?: string | null;
+    gender?: string | null;
+    currentJob?: string | null;
+    educationLevel?: string | null;
+  } | null;
+};
+
+export type AdminUserDetail = {
+  user: AuthUser;
+  profile: AdminUserProfile;
+  enrollments: AdminEnrollment[];
+};
+
+export type AdminUserUpdatePayload = {
+  email?: string;
+  username?: string;
+  realName?: string;
+  phone?: string;
+  status?: string;
+  profileImageUrl?: string;
+};
+
+export type AdminEnrollmentUpdatePayload = {
+  courseId?: number;
+  sessionId?: number;
+  status?: string;
+  memo?: string;
+};
+
 const DEFAULT_AUTH_API_PATH = "/api/user";
 
 function joinUrl(baseUrl: string, path: string) {
@@ -176,6 +240,37 @@ export async function getAdminUsers(token: string | null, q = "") {
   );
 }
 
+export async function getAdminUserDetail(token: string | null, id: number) {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestJson<AdminUserDetail>(joinUrl(AUTH_API_BASE, `/admin/users/${id}`), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function updateAdminUser(
+  token: string | null,
+  id: number,
+  payload: AdminUserUpdatePayload
+) {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestJson<AuthUser>(joinUrl(AUTH_API_BASE, `/admin/users/${id}`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function adminResetPassword(
   token: string | null,
   payload: AdminPasswordResetPayload
@@ -197,6 +292,52 @@ export async function adminResetPassword(
         identifier: payload.identifier?.trim() || undefined,
         newPassword: payload.newPassword || undefined,
       }),
+    }
+  );
+}
+
+export async function adminResetUserPassword(
+  token: string | null,
+  userId: number,
+  newPassword?: string
+) {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestJson<AdminPasswordResetResult>(
+    joinUrl(AUTH_API_BASE, `/admin/users/${userId}/password-reset`),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        newPassword: newPassword?.trim() || undefined,
+      }),
+    }
+  );
+}
+
+export async function updateAdminEnrollment(
+  token: string | null,
+  enrollmentId: number,
+  payload: AdminEnrollmentUpdatePayload
+) {
+  if (!token) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
+  return requestJson<AdminEnrollment>(
+    joinUrl(AUTH_API_BASE, `/admin/enrollments/${enrollmentId}`),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     }
   );
 }

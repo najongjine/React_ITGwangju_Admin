@@ -11,13 +11,19 @@ import {
   TextInput,
 } from "../components/common";
 import {
+  COURSE_STATUSES,
   deleteCourse,
   deleteCourseSession,
   formatCourseApiError,
   getCourse,
+  getCourseSessionEnrollments,
+  getCourseStatusLabel,
+  normalizeCourseStatus,
   saveCourseSession,
   type Course,
+  type CourseEnrollment,
   type CourseSession,
+  type CourseStatus,
 } from "../services/courseApi";
 
 type SessionForm = {
@@ -29,7 +35,7 @@ type SessionForm = {
   classStartTime: string;
   classEndTime: string;
   capacity: string;
-  status: string;
+  status: CourseStatus;
 };
 
 const emptySessionForm: SessionForm = {
@@ -40,8 +46,8 @@ const emptySessionForm: SessionForm = {
   endDate: "",
   classStartTime: "",
   classEndTime: "",
-  capacity: "",
-  status: "recruiting",
+  capacity: "20",
+  status: "모집중",
 };
 
 function toDateInputValue(value?: string | null) {
@@ -52,7 +58,31 @@ function toTimeInputValue(value?: string | null) {
   return value ? value.slice(0, 5) : "";
 }
 
+function toDisplayDate(value?: string | null) {
+  return toDateInputValue(value) || "-";
+}
+
+function getStatusColor(status?: string | null): "gray" | "green" | "blue" | "red" {
+  const normalized = normalizeCourseStatus(status);
+
+  if (normalized === "모집중") {
+    return "blue";
+  }
+
+  if (normalized === "운영중") {
+    return "green";
+  }
+
+  if (normalized === "마감" || normalized === "deleted") {
+    return "red";
+  }
+
+  return "gray";
+}
+
 function toSessionForm(session: CourseSession): SessionForm {
+  const normalizedStatus = normalizeCourseStatus(session.status);
+
   return {
     id: session.id,
     sessionName: session.sessionName || "",
@@ -61,14 +91,23 @@ function toSessionForm(session: CourseSession): SessionForm {
     endDate: toDateInputValue(session.endDate),
     classStartTime: toTimeInputValue(session.classStartTime),
     classEndTime: toTimeInputValue(session.classEndTime),
-    capacity: session.capacity ? String(session.capacity) : "",
-    status: session.status || "recruiting",
+    capacity: session.capacity ? String(session.capacity) : "20",
+    status: normalizedStatus && normalizedStatus !== "deleted" ? normalizedStatus : "모집중",
   };
 }
 
 function nullableNumber(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function getEnrollmentUserName(enrollment: CourseEnrollment) {
+  return (
+    enrollment.user?.realName ||
+    enrollment.user?.name ||
+    enrollment.user?.username ||
+    `회원 ${enrollment.userId ?? "-"}`
+  );
 }
 
 export default function CourseDetail() {
@@ -81,6 +120,10 @@ export default function CourseDetail() {
   const [sessionForm, setSessionForm] = useState<SessionForm>(emptySessionForm);
   const [sessionSaving, setSessionSaving] = useState(false);
   const [sessionError, setSessionError] = useState("");
+  const [enrollmentSession, setEnrollmentSession] = useState<CourseSession | null>(null);
+  const [enrollments, setEnrollments] = useState<CourseEnrollment[]>([]);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [enrollmentError, setEnrollmentError] = useState("");
 
   const loadCourse = async () => {
     setCourse(await getCourse(courseId));
@@ -164,7 +207,7 @@ export default function CourseDetail() {
   };
 
   const handleSessionDelete = async (session: CourseSession) => {
-    if (!window.confirm(`'${session.sessionName}' 회차를 삭제할까요?`)) {
+    if (!window.confirm(`'${session.sessionName || `${session.sessionNo ?? ""}회차`}' 회차를 삭제할까요?`)) {
       return;
     }
 
@@ -178,6 +221,21 @@ export default function CourseDetail() {
       await loadCourse();
     } catch (deleteError) {
       setSessionError(formatCourseApiError(deleteError, "회차를 삭제하지 못했습니다."));
+    }
+  };
+
+  const handleEnrollmentOpen = async (session: CourseSession) => {
+    setEnrollmentSession(session);
+    setEnrollmentLoading(true);
+    setEnrollmentError("");
+    setEnrollments([]);
+
+    try {
+      setEnrollments(await getCourseSessionEnrollments(courseId, session.id));
+    } catch (loadError) {
+      setEnrollmentError(formatCourseApiError(loadError, "회차 신청 인원 목록을 불러오지 못했습니다."));
+    } finally {
+      setEnrollmentLoading(false);
     }
   };
 
@@ -211,173 +269,243 @@ export default function CourseDetail() {
           <Section>
             <Card title={course.courseName} description={course.summary || undefined}>
               <div className="detail-meta">
-                <Badge color={course.status === "active" ? "green" : "gray"}>
-                  {course.status || "상태 없음"}
+                <Badge color={getStatusColor(course.status)}>
+                  {getCourseStatusLabel(course.status)}
                 </Badge>
                 <span>{course.isVisible === false ? "숨김" : "노출"}</span>
                 <span>정렬 {course.sortOrder ?? 0}</span>
+                <span>회차 {course.sessionCount ?? course.sessions?.length ?? 0}개</span>
+                <span>총 정원 {course.totalCapacity ?? 0}명</span>
+                <span>총 신청 {course.totalEnrollment ?? 0}명</span>
               </div>
             </Card>
           </Section>
 
-          <Section title="설명 이미지">
+          <Section title="이미지">
             {course.thumbnail?.url || (course.descriptionImages && course.descriptionImages.length > 0) ? (
               <div className="detail-image-stack">
                 {course.thumbnail?.url && (
-                  <img src={course.thumbnail.url} alt={course.courseName} />
+                  <img src={course.thumbnail.url} alt={`${course.courseName} 메인이미지`} />
                 )}
                 {(course.descriptionImages || []).map(({ file, link }, index) =>
                   file?.url ? (
-                    <img key={link.id || file.id || index} src={file.url} alt={`${course.courseName} 설명 ${index + 1}`} />
+                    <img
+                      key={link.id || file.id || index}
+                      src={file.url}
+                      alt={`${course.courseName} 서브 이미지 ${index + 1}`}
+                    />
                   ) : null
                 )}
               </div>
             ) : (
-              <EmptyState title="등록된 설명 이미지가 없습니다." />
+              <EmptyState title="등록된 이미지가 없습니다." />
             )}
           </Section>
 
           {course.description && (
-            <Section title="상세 내용">
+            <Section title="상세내용">
               <Card>
                 <p className="detail-description">{course.description}</p>
               </Card>
             </Section>
           )}
 
-          <Section title="회차 관리">
-            <div className="session-manager">
-              <Card title={sessionForm.id > 0 ? "회차 수정" : "회차 등록"}>
-                <form className="session-form" onSubmit={(event) => void handleSessionSubmit(event)}>
-                  {sessionError && <p className="form-message form-message--error">{sessionError}</p>}
-                  <div className="course-form__grid">
-                    <TextInput
-                      label="회차명"
-                      value={sessionForm.sessionName}
-                      onChange={(event) => updateSessionForm("sessionName", event.target.value)}
-                      required
-                    />
-                    <TextInput
-                      label="회차 번호"
-                      type="number"
-                      min="1"
-                      value={sessionForm.sessionNo}
-                      onChange={(event) => updateSessionForm("sessionNo", event.target.value)}
-                    />
-                    <TextInput
-                      label="교육 시작일"
-                      type="date"
-                      value={sessionForm.startDate}
-                      onChange={(event) => updateSessionForm("startDate", event.target.value)}
-                    />
-                    <TextInput
-                      label="교육 종료일"
-                      type="date"
-                      value={sessionForm.endDate}
-                      onChange={(event) => updateSessionForm("endDate", event.target.value)}
-                    />
-                    <TextInput
-                      label="수업 시작 시간"
-                      type="time"
-                      value={sessionForm.classStartTime}
-                      onChange={(event) => updateSessionForm("classStartTime", event.target.value)}
-                    />
-                    <TextInput
-                      label="수업 종료 시간"
-                      type="time"
-                      value={sessionForm.classEndTime}
-                      onChange={(event) => updateSessionForm("classEndTime", event.target.value)}
-                    />
-                    <TextInput
-                      label="정원"
-                      type="number"
-                      min="0"
-                      value={sessionForm.capacity}
-                      onChange={(event) => updateSessionForm("capacity", event.target.value)}
-                    />
-                    <label className="field">
-                      <span className="field__label">상태</span>
-                      <select
-                        className="field__input"
-                        value={sessionForm.status}
-                        onChange={(event) => updateSessionForm("status", event.target.value)}
-                      >
-                        <option value="recruiting">모집중</option>
-                        <option value="closed">마감</option>
-                        <option value="active">운영중</option>
-                        <option value="hidden">숨김</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div className="course-form__actions">
-                    <Button type="submit" disabled={sessionSaving}>
-                      {sessionSaving ? "저장 중" : sessionForm.id > 0 ? "회차 수정" : "회차 등록"}
+          <Section title="회차 등록">
+            <Card title={sessionForm.id > 0 ? "회차 수정" : "회차 등록"}>
+              <form className="session-form" onSubmit={(event) => void handleSessionSubmit(event)}>
+                {sessionError && <p className="form-message form-message--error">{sessionError}</p>}
+                <div className="course-form__grid">
+                  <TextInput
+                    label="회차명"
+                    value={sessionForm.sessionName}
+                    onChange={(event) => updateSessionForm("sessionName", event.target.value)}
+                    required
+                  />
+                  <TextInput
+                    label="회차번호"
+                    type="number"
+                    min="1"
+                    value={sessionForm.sessionNo}
+                    onChange={(event) => updateSessionForm("sessionNo", event.target.value)}
+                  />
+                  <TextInput
+                    label="교육시작일"
+                    type="date"
+                    value={sessionForm.startDate}
+                    onChange={(event) => updateSessionForm("startDate", event.target.value)}
+                  />
+                  <TextInput
+                    label="교육종료일"
+                    type="date"
+                    value={sessionForm.endDate}
+                    onChange={(event) => updateSessionForm("endDate", event.target.value)}
+                  />
+                  <TextInput
+                    label="수업시작시간"
+                    type="time"
+                    value={sessionForm.classStartTime}
+                    onChange={(event) => updateSessionForm("classStartTime", event.target.value)}
+                  />
+                  <TextInput
+                    label="수업종료시간"
+                    type="time"
+                    value={sessionForm.classEndTime}
+                    onChange={(event) => updateSessionForm("classEndTime", event.target.value)}
+                  />
+                  <TextInput
+                    label="정원"
+                    type="number"
+                    min="0"
+                    value={sessionForm.capacity}
+                    onChange={(event) => updateSessionForm("capacity", event.target.value)}
+                  />
+                  <label className="field">
+                    <span className="field__label">상태</span>
+                    <select
+                      className="field__input"
+                      value={sessionForm.status}
+                      onChange={(event) => updateSessionForm("status", event.target.value)}
+                    >
+                      {COURSE_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="course-form__actions">
+                  <Button type="submit" disabled={sessionSaving}>
+                    {sessionSaving ? "저장 중" : sessionForm.id > 0 ? "회차 수정" : "회차 등록"}
+                  </Button>
+                  {sessionForm.id > 0 && (
+                    <Button variant="secondary" onClick={resetSessionForm}>
+                      새 회차 입력
                     </Button>
-                    {sessionForm.id > 0 && (
-                      <Button variant="secondary" onClick={resetSessionForm}>
-                        새 회차 입력
-                      </Button>
-                    )}
-                  </div>
-                </form>
-              </Card>
+                  )}
+                </div>
+              </form>
+            </Card>
+          </Section>
 
-              {course.sessions && course.sessions.length > 0 ? (
+          <Section title="회차 목록">
+            {course.sessions && course.sessions.length > 0 ? (
+              <DataTable
+                rows={course.sessions}
+                getRowKey={(session) => session.id}
+                columns={[
+                  {
+                    key: "name",
+                    header: "회차명",
+                    render: (session) => session.sessionName || "-",
+                  },
+                  {
+                    key: "no",
+                    header: "회차",
+                    render: (session) => (session.sessionNo ? `${session.sessionNo}회차` : "-"),
+                  },
+                  {
+                    key: "period",
+                    header: "교육기간",
+                    render: (session) => `${toDisplayDate(session.startDate)} ~ ${toDisplayDate(session.endDate)}`,
+                  },
+                  {
+                    key: "classTime",
+                    header: "수업시간",
+                    render: (session) =>
+                      `${toTimeInputValue(session.classStartTime) || "-"} ~ ${
+                        toTimeInputValue(session.classEndTime) || "-"
+                      }`,
+                  },
+                  {
+                    key: "capacity",
+                    header: "정원",
+                    render: (session) => `${session.capacity ?? 0}명`,
+                  },
+                  {
+                    key: "status",
+                    header: "상태",
+                    render: (session) => (
+                      <Badge color={getStatusColor(session.status)}>
+                        {getCourseStatusLabel(session.status)}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: "totalEnrollment",
+                    header: "총인원",
+                    render: (session) => (
+                      <button className="link-button" onClick={() => void handleEnrollmentOpen(session)}>
+                        {session.totalEnrollment ?? 0}명
+                      </button>
+                    ),
+                  },
+                  {
+                    key: "actions",
+                    header: "관리",
+                    render: (session) => (
+                      <div className="table-actions">
+                        <Button variant="secondary" onClick={() => setSessionForm(toSessionForm(session))}>
+                          수정
+                        </Button>
+                        <Button variant="danger" onClick={() => void handleSessionDelete(session)}>
+                          삭제
+                        </Button>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            ) : (
+              <EmptyState title="등록된 회차가 없습니다." />
+            )}
+          </Section>
+
+          {enrollmentSession && (
+            <Section
+              title="회차별 신청 인원"
+              description={`${enrollmentSession.sessionName || `${enrollmentSession.sessionNo ?? ""}회차`} 신청자 목록입니다.`}
+              actions={
+                <Button variant="secondary" onClick={() => setEnrollmentSession(null)}>
+                  닫기
+                </Button>
+              }
+            >
+              {enrollmentError && <p className="form-message form-message--error">{enrollmentError}</p>}
+              {enrollmentLoading ? (
+                <EmptyState title="신청 인원 목록을 불러오는 중입니다." />
+              ) : enrollments.length > 0 ? (
                 <DataTable
-                  rows={course.sessions}
-                  getRowKey={(session) => session.id}
+                  rows={enrollments}
+                  getRowKey={(enrollment) => enrollment.id}
                   columns={[
                     {
-                      key: "name",
-                      header: "회차명",
-                      render: (session) => session.sessionName,
+                      key: "id",
+                      header: "회원번호",
+                      render: (enrollment) => enrollment.user?.id ?? enrollment.userId ?? "-",
                     },
                     {
-                      key: "no",
-                      header: "회차",
-                      render: (session) => session.sessionNo ? `${session.sessionNo}회차` : "-",
+                      key: "username",
+                      header: "username",
+                      render: (enrollment) => getEnrollmentUserName(enrollment),
                     },
                     {
-                      key: "period",
-                      header: "교육 기간",
-                      render: (session) => `${session.startDate || "-"} ~ ${session.endDate || "-"}`,
+                      key: "email",
+                      header: "이메일",
+                      render: (enrollment) => enrollment.user?.email || "-",
                     },
                     {
-                      key: "classTime",
-                      header: "수업 시간",
-                      render: (session) => `${toTimeInputValue(session.classStartTime) || "-"} ~ ${toTimeInputValue(session.classEndTime) || "-"}`,
-                    },
-                    {
-                      key: "capacity",
-                      header: "정원",
-                      render: (session) => session.capacity ?? 0,
-                    },
-                    {
-                      key: "status",
-                      header: "상태",
-                      render: (session) => session.status || "상태 없음",
-                    },
-                    {
-                      key: "actions",
-                      header: "관리",
-                      render: (session) => (
-                        <div className="table-actions">
-                          <Button variant="secondary" onClick={() => setSessionForm(toSessionForm(session))}>
-                            수정
-                          </Button>
-                          <Button variant="danger" onClick={() => void handleSessionDelete(session)}>
-                            삭제
-                          </Button>
-                        </div>
-                      ),
+                      key: "phone",
+                      header: "전화번호",
+                      render: (enrollment) => enrollment.user?.phone || enrollment.user?.phoneNumber || "-",
                     },
                   ]}
                 />
               ) : (
-                <EmptyState title="등록된 회차가 없습니다." />
+                <EmptyState title="신청 인원이 없습니다." />
               )}
-            </div>
-          </Section>
+            </Section>
+          )}
         </>
       ) : null}
     </Page>

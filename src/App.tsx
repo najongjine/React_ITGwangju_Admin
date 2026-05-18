@@ -16,6 +16,8 @@ import NoticeDetail from "./Pages/NoticeDetail";
 import NoticeForm from "./Pages/NoticeForm";
 import InquiryList from "./Pages/InquiryList";
 import InquiryDetail from "./Pages/InquiryDetail";
+import UserList from "./Pages/UserList";
+import UserDetail from "./Pages/UserDetail";
 
 function App() {
   return (
@@ -37,7 +39,9 @@ function App() {
           <Route path="/notices/:id/edit" element={<NoticeForm />} />
           <Route path="/inquiries" element={<InquiryList />} />
           <Route path="/inquiries/:id" element={<InquiryDetail />} />
+          <Route path="/users" element={<UserList />} />
           <Route path="/users/password-reset" element={<UserPasswordReset />} />
+          <Route path="/users/:id" element={<UserDetail />} />
           <Route path="/components" element={<ComponentGuide />} />
           <Route path="/contextapi_test" element={<ContextAPI_Test />} />
         </Routes>

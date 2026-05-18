@@ -13,22 +13,26 @@ import {
   deleteCourse,
   formatCourseApiError,
   getCourses,
+  getCourseStatusLabel,
+  normalizeCourseStatus,
   type Course,
 } from "../services/courseApi";
 
-const statusLabels: Record<string, string> = {
-  active: "운영중",
-  hidden: "숨김",
-  deleted: "삭제됨",
-};
+function getStatusColor(status?: string | null): "gray" | "green" | "blue" | "red" {
+  const normalized = normalizeCourseStatus(status);
 
-function getStatusColor(status?: string | null): "gray" | "green" | "red" {
-  if (status === "active") {
+  if (normalized === "모집중") {
+    return "blue";
+  }
+
+  if (normalized === "운영중") {
     return "green";
   }
-  if (status === "deleted") {
+
+  if (normalized === "마감" || normalized === "deleted") {
     return "red";
   }
+
   return "gray";
 }
 
@@ -60,6 +64,11 @@ export default function CourseList() {
     [courses]
   );
 
+  const totalEnrollment = useMemo(
+    () => courses.reduce((sum, course) => sum + Number(course.totalEnrollment ?? 0), 0),
+    [courses]
+  );
+
   const handleDelete = async (course: Course) => {
     if (!window.confirm(`'${course.courseName}' 과정을 삭제할까요?`)) {
       return;
@@ -76,7 +85,7 @@ export default function CourseList() {
   return (
     <Page
       title="과정 관리"
-      description={`등록된 과정 ${courses.length}개 중 ${visibleCount}개가 노출 중입니다.`}
+      description={`등록된 과정 ${courses.length}개 중 ${visibleCount}개가 노출 중입니다. 총 신청 인원은 ${totalEnrollment}명입니다.`}
       actions={
         <Link to="/courses/new">
           <Button>과정 등록</Button>
@@ -111,7 +120,7 @@ export default function CourseList() {
         ) : courses.length === 0 ? (
           <EmptyState
             title="등록된 과정이 없습니다."
-            description="새 과정 등록 버튼으로 첫 과정을 추가하세요."
+            description="과정 등록 버튼으로 첫 과정을 추가하세요."
             action={
               <Link to="/courses/new">
                 <Button>과정 등록</Button>
@@ -124,8 +133,13 @@ export default function CourseList() {
             getRowKey={(course) => course.id}
             columns={[
               {
+                key: "id",
+                header: "과정번호",
+                render: (course) => course.id,
+              },
+              {
                 key: "thumb",
-                header: "이미지",
+                header: "메인이미지",
                 render: (course) =>
                   course.thumbnail?.url ? (
                     <img className="table-thumbnail" src={course.thumbnail.url} alt="" />
@@ -149,7 +163,7 @@ export default function CourseList() {
               },
               {
                 key: "visible",
-                header: "노출",
+                header: "노출여부",
                 render: (course) => (course.isVisible === false ? "숨김" : "노출"),
               },
               {
@@ -157,9 +171,14 @@ export default function CourseList() {
                 header: "상태",
                 render: (course) => (
                   <Badge color={getStatusColor(course.status)}>
-                    {statusLabels[course.status || ""] || course.status || "상태 없음"}
+                    {getCourseStatusLabel(course.status)}
                   </Badge>
                 ),
+              },
+              {
+                key: "capacity",
+                header: "정원",
+                render: (course) => `${course.totalCapacity ?? 0}명`,
               },
               {
                 key: "actions",

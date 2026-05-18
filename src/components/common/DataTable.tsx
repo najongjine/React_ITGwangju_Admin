@@ -10,9 +10,10 @@ type DataTableProps<T> = {
   columns: DataTableColumn<T>[];
   rows: T[];
   getRowKey: (row: T) => string | number;
+  onRowClick?: (row: T) => void;
 };
 
-export default function DataTable<T>({ columns, rows, getRowKey }: DataTableProps<T>) {
+export default function DataTable<T>({ columns, rows, getRowKey, onRowClick }: DataTableProps<T>) {
   return (
     <div className="data-table">
       <table>
@@ -25,7 +26,11 @@ export default function DataTable<T>({ columns, rows, getRowKey }: DataTableProp
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={getRowKey(row)}>
+            <tr
+              key={getRowKey(row)}
+              className={onRowClick ? "data-table__row--clickable" : undefined}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+            >
               {columns.map((column) => (
                 <td key={column.key}>{column.render(row)}</td>
               ))}
